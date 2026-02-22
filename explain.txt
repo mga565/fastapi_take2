@@ -1,0 +1,122 @@
+fastapi (Library)
+uvicorn (Library, to create a local web server )
+sqlalchemy ( Library for data base)
+aiosqlite ( Library for creating data base)
+
+
+1. python3 -m venv venv  ( create virtual environment and venv folder)
+2. source venv/bin/activate ( activate vertual environment)
+3. Now can start creating all dependencies: 
+    3.1 cd Python ls ( to navigate to folder where requirements.txt file locate)
+    3.2 pip install -r requirements.txt ( to download all libraries)
+    3.3 pip install --upgrade pip ( to upgrade libraries to current date version)
+
+4. create python file main.py
+    4.1 inside main.pu  import from FastAPI library ( to create application) code : from fastapi import FastAPI
+    4.2 creating decorator which would be receiving requests from front end website user. code : app.get("/home") /// and that /home is a web page 
+    4.3 create function Hello world. code : def get_home(): 
+                                                    return {"data": "Hello World!"}
+5. using uvicorn which will launch local web server. 
+    5.1 write address from uvicorn library to our file.
+    5.2 code: uvicorn main:app --reload
+    5.3 we use --reload to constantly keep the web page reload, so that every time i change code it will auto update web page
+    
+6. create pydantic library which installs automatically with fastapi
+    6.1 from pydantic import BaseModel
+    6.2 create a class Task 
+    6.3 changing endpoint from app.get("/home") to app.get("/tasks")
+    6.4 rename def get_home to def get_tasks 
+    6.5 create a task to use code : task = Task(name= " JUST TESTING STUFF HERE")
+    6.6 in return change as well to return {"data": task}
+7. http://127.0.0.1:8000/docs go to fastapi docs page.
+8. create new tasks 
+    8.1 in main py rename Task class to STaskAdd
+    8.2  create new  class STask which will be connected to STaskAdd
+    8.3 add id to Stask class
+
+9. remove @app.get("/tasks") and replace it with app.post to create a new end point to add tasks.
+    9.1 use command + / to deactivate app.get entirely code which will be visible with hashtag sign #
+    9.2 create app.post and create def which will receive tasks. code: @app.post("/tasks")
+                                                                       def add_task(
+                                                                         ):
+    9.3 result returning. code: return {"ok": True}
+
+    9.4 Inside  def add_task we receive a task. code: task: Annotated[STaskAdd, Depends()], 
+    9.5 Annotated and Depends create comfortable and good looking fields to fill in name and description on the local web page http://127.0.0.1:8000/docs 
+    9.6 Activate. Annotated and Depends with from code : fastapi import FastAPI, Depends and from typing import Annotated and from typing import Optional
+    9.7 We create tasks = [] creating spisok
+    9.8 Then add tasks.append(task) inside def add_task
+10. We created a simple task where we can fill in user data. Now lets learn how to connect data base.
+    10.1 create database.py and create peremennaya engine
+    10.2 From sqlalchemy library , we get from asyncio extension we import the creation of asyncio engine. Code: from sqlalchemy.ext.asyncio import create_async_engine
+     and async_sessionmaker (async_sessionmaker creates session transactions to work with database )
+    10.3 Creating   create_async_engine which will send a request to data base.
+    10.4 inside  create_async_engine we need to create a url, in order to send a request.
+    10.5 url data base consist of name of database, driver and name of the file. Code: "sqlite+aiosqlite:///task.db"
+    10.6 creation session. Code: new_session = async_sessionmaker(engine, expire_on_commit= False)
+
+11. Create a table (таблица) class TaskTable(). Она тоже должна от чего то наследоваться.
+    11.1 We need to import from sqlalchemy DeclarativeBase Code: from sqlalchemy import DeclarativeBase
+    11.2 Create a class. Code: class Model(DeclarativeBase):
+                                pass
+    11.3 pass will make this class empty.
+    11.4 create основные параметры в class TaskTable(Model):
+                                        __tablename__ = "tasks"
+    11.5  задаем параметр айдишник : id: Mapped[int] = mapped_column(primary_key=True)
+    11.6 name: Mapped[str]
+    11.7 description: Mapped[Optional[str]]
+    11.8  Table is described
+
+12. Now we need to create a table.
+    12.1 We need to create an asyncrone function to create a table. We use async function because we have async driver.
+    12.2 async def create_tables():
+        async with engine.begin() as conn:
+        await conn.run_sync(Model.metadata.create_all)
+    12.3 We also create a function to delete all tables.
+        async def delete_tables():
+        async with engine.begin() as conn:
+        await conn.run_sync(Model.metadata.drop_all)
+
+13. We are now ready to create a data base.
+So we want to create a server with uvicorn and also that the database also be created by erasing old data and create a new table.
+We copy a code from https://fastapi.tiangolo.com/advanced/events/#lifespan ; this is where fastapi lifespan feature is.
+Insert code into main.py to the top of the page, and delete uneccessary parts.
+into inserted code we will add two functions that we created before from database.
+First function will delete tables second function will create.
+adding from database import create_tables, delete_tables to main.py to import tablese from data base.
+adding also in database.py extra imports. from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column ; from typing import Optional
+From chatgpt it was suggested to install pip install greenlet to make everything work.
+Code :pip install greenlet
+
+
+14. Create a new file repository.py
+   Here we can work with database as a collection of objects. We can add objects with "add" function or delete objects with "delete" function. 
+   Also we can edit or read objects.
+   from database import new_session
+   from main import STaskAdd
+   creating class: class TaskRepository:
+                        @classmethod
+                        async def add_one(cls, task:STaskAdd):
+                         async with new_session()as session: 
+                         task_dict = task.model_dump() #Note: task.model_dump() convert into dictionary
+
+                        task = TaskOrm(**task_dict)  #Note: **task_dict will auto fill in id and other info no need to add id 
+                        session.add(task)  syncronize operation not yet обращение к базе
+                        await session.flush() 
+                        await session.commit()  here session all changes that been add through "add" function will send to database.
+                        return task.id   
+                        Note: to find out what is the primary_key of the task and in order primary_key to appear in the task object
+                         we need before commit to make flush function.
+
+
+
+                            @classmethod
+                            async def find_all(cls):
+                                async with new_session()as session:
+                                    query = select(TaskOrm)
+
+14.1 Await means обратиться. In my case to database.
+
+
+
+
